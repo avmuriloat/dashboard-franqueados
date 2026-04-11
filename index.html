@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Franqueados — iVoei</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #0f172a; --surface: #1e293b; --border: #334155;
+  --text: #e2e8f0; --muted: #94a3b8; --accent: #38bdf8;
+  --green: #4ade80; --red: #f87171; --yellow: #fbbf24;
+  --purple: #a78bfa; --orange: #fb923c; --teal: #2dd4bf;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); }
+.header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 24px 32px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+.header-left h1 { font-size: 24px; color: var(--accent); display: flex; align-items: center; gap: 10px; }
+.header-left h1 span { font-size: 28px; }
+.header-left p { color: var(--muted); font-size: 13px; margin-top: 4px; }
+.header-right { display: flex; gap: 10px; align-items: center; }
+.badge-live { background: #4ade8020; color: var(--green); padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.badge-live::before { content: ''; width: 8px; height: 8px; background: var(--green); border-radius: 50%; animation: pulse 2s infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+.btn { padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s; }
+.btn:hover { background: var(--border); }
+.btn-primary { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; }
+.btn-primary:hover { background: #7dd3fc; }
+
+.container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+
+/* Filter bar */
+.filter-bar { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; align-items: center; }
+.filter-bar input, .filter-bar select { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 8px 14px; border-radius: 8px; font-size: 13px; outline: none; }
+.filter-bar input:focus, .filter-bar select:focus { border-color: var(--accent); }
+.filter-bar input { min-width: 240px; }
+.filter-tag { display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; background: var(--accent)20; color: var(--accent); border-radius: 20px; font-size: 12px; cursor: pointer; }
+.filter-tag:hover { background: var(--accent)40; }
+
+/* KPI Cards */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; position: relative; overflow: hidden; }
+.kpi::after { content: ''; position: absolute; top: 0; right: 0; width: 60px; height: 60px; border-radius: 0 0 0 60px; opacity: 0.1; }
+.kpi .value { font-size: 32px; font-weight: 700; line-height: 1.1; }
+.kpi .label { font-size: 12px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+.kpi .trend { font-size: 12px; margin-top: 8px; display: flex; align-items: center; gap: 4px; }
+.kpi.blue .value { color: var(--accent); }
+.kpi.green .value { color: var(--green); }
+.kpi.red .value { color: var(--red); }
+.kpi.yellow .value { color: var(--yellow); }
+.kpi.purple .value { color: var(--purple); }
+.kpi.teal .value { color: var(--teal); }
+
+/* Charts section */
+.charts-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 24px; }
+.chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; }
+.chart-card h3 { font-size: 15px; color: var(--muted); margin-bottom: 16px; font-weight: 500; }
+.chart-container { position: relative; width: 100%; }
+
+/* Funnel visual */
+.funnel { margin-bottom: 24px; }
+.funnel-stage { display: flex; align-items: center; margin-bottom: 6px; cursor: pointer; transition: transform 0.2s; }
+.funnel-stage:hover { transform: translateX(4px); }
+.funnel-label { width: 180px; text-align: right; padding-right: 14px; font-size: 12px; color: var(--muted); font-weight: 500; white-space: nowrap; }
+.funnel-bar-bg { flex: 1; height: 32px; background: var(--bg); border-radius: 8px; overflow: hidden; position: relative; }
+.funnel-bar { height: 100%; border-radius: 8px; display: flex; align-items: center; padding: 0 12px; font-size: 12px; font-weight: 600; color: white; min-width: fit-content; transition: width 0.8s cubic-bezier(0.4,0,0.2,1); }
+.funnel-count { margin-left: 10px; font-size: 12px; color: var(--muted); font-weight: 400; }
+
+/* Table */
+.table-section { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; margin-bottom: 24px; }
+.table-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+.table-header h3 { font-size: 15px; color: var(--muted); font-weight: 500; }
+.table-tabs { display: flex; gap: 4px; }
+.tab { padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; color: var(--muted); background: transparent; border: none; font-weight: 500; }
+.tab.active { background: var(--accent)20; color: var(--accent); }
+.table-scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; padding: 10px 16px; color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); background: var(--bg); position: sticky; top: 0; }
+td { padding: 10px 16px; border-bottom: 1px solid #1e293b20; }
+tr:hover td { background: var(--border)40; }
+.stage-badge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.stage-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; }
+.sb-new { background: #4ade8015; color: var(--green); } .sb-new::before { background: var(--green); }
+.sb-training { background: #38bdf815; color: var(--accent); } .sb-training::before { background: var(--accent); }
+.sb-preop { background: #fb923c15; color: var(--orange); } .sb-preop::before { background: var(--orange); }
+.sb-gold { background: #fbbf2415; color: var(--yellow); } .sb-gold::before { background: var(--yellow); }
+.sb-platinum { background: #94a3b815; color: #c0c8d4; } .sb-platinum::before { background: #c0c8d4; }
+.sb-black { background: #f8fafc15; color: #f8fafc; } .sb-black::before { background: #f8fafc; }
+.sb-monitor { background: #2dd4bf15; color: var(--teal); } .sb-monitor::before { background: var(--teal); }
+.sb-alert { background: #f8717115; color: var(--red); } .sb-alert::before { background: var(--red); }
+.sb-pause { background: #a78bfa15; color: var(--purple); } .sb-pause::before { background: var(--purple); }
+.sb-lost { background: #ef444415; color: #fca5a5; } .sb-lost::before { background: #fca5a5; }
+.sb-won { background: #22c55e15; color: var(--green); } .sb-won::before { background: var(--green); }
+
+.pagination { display: flex; justify-content: center; gap: 4px; padding: 12px; }
+.page-btn { padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; }
+.page-btn.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+
+/* Insights */
+.insights-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.insight-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; border-left: 4px solid var(--accent); }
+.insight-card.danger { border-left-color: var(--red); }
+.insight-card.success { border-left-color: var(--green); }
+.insight-card.warning { border-left-color: var(--yellow); }
+.insight-card h4 { font-size: 14px; margin-bottom: 6px; }
+.insight-card p { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+.loading { text-align: center; padding: 80px 20px; }
+.spinner { width: 48px; height: 48px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 20px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading p { color: var(--muted); font-size: 15px; }
+#progress { font-size: 13px; color: var(--accent); margin-top: 8px; }
+
+.footer { text-align: center; padding: 20px; color: #475569; font-size: 12px; border-top: 1px solid var(--border); margin-top: 20px; }
+
+@media (max-width: 900px) {
+  .charts-grid { grid-template-columns: 1fr; }
+  .funnel-label { width: 120px; font-size: 11px; }
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .header { padding: 16px; }
+  .container { padding: 16px; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1><span>📊</span> Dashboard Franqueados</h1>
+    <p>Funil de Relacionamento Franquia • iVoei • Dados em tempo real via Bitrix24</p>
+  </div>
+  <div class="header-right">
+    <div class="badge-live">Dados ao vivo</div>
+    <button class="btn" onclick="exportCSV()">📥 CSV</button>
+    <button class="btn btn-primary" onclick="location.reload()">🔄 Atualizar</button>
+  </div>
+</div>
+
+<div class="container" id="app">
+  <div class="loading">
+    <div class="spinner"></div>
+    <p>Conectando ao Bitrix24...</p>
+    <p id="progress"></p>
+  </div>
+</div>
+
+<div class="footer">Dashboard iVoei Franchising • Dados via API Bitrix24 REST • Atualização em tempo real</div>
+
+<script>
+const WEBHOOK = 'https://ivoei.bitrix24.com.br/rest/8/55kkz2zdql6r0xa4';
+
+const STAGES = [
+  { id: 'C40:NEW', name: 'Boas Vindas', color: '#4ade80', badge: 'new', group: 'onboarding' },
+  { id: 'C40:PREPARATION', name: 'Reunião 0 / Logins', color: '#4ade80', badge: 'new', group: 'onboarding' },
+  { id: 'C40:UC_QW5FPT', name: 'Treinamento', color: '#38bdf8', badge: 'training', group: 'onboarding' },
+  { id: 'C40:UC_G5M3HM', name: 'Treinamento em Alerta', color: '#f87171', badge: 'alert', group: 'alert' },
+  { id: 'C40:UC_IWLDG9', name: 'Pré-Operacional', color: '#fb923c', badge: 'preop', group: 'onboarding' },
+  { id: 'C40:UC_H5V94G', name: 'Operação Gold', color: '#fbbf24', badge: 'gold', group: 'operational' },
+  { id: 'C40:UC_RQR707', name: 'Operação Platinum', color: '#c0c8d4', badge: 'platinum', group: 'operational' },
+  { id: 'C40:UC_B307LJ', name: 'Operação Black', color: '#f8fafc', badge: 'black', group: 'operational' },
+  { id: 'C40:UC_PKJ5D7', name: 'Monitoramento Contínuo', color: '#2dd4bf', badge: 'monitor', group: 'operational' },
+  { id: 'C40:UC_MQYZC8', name: 'Pausa Temporária', color: '#a78bfa', badge: 'pause', group: 'alert' },
+  { id: 'C40:UC_AP0G1K', name: 'Franquia em Alerta!', color: '#f87171', badge: 'alert', group: 'alert' },
+  { id: 'C40:UC_R75XVC', name: 'Turnover', color: '#ef4444', badge: 'alert', group: 'alert' },
+  { id: 'C40:WON', name: 'Concluído', color: '#22c55e', badge: 'won', group: 'closed' },
+  { id: 'C40:LOSE', name: 'Perdido / Turnover', color: '#ef4444', badge: 'lost', group: 'closed' },
+];
+
+const stageMap = Object.fromEntries(STAGES.map(s => [s.id, s]));
+
+let ALL_DEALS = [];
+let currentFilter = { search: '', stage: 'all', tab: 'active' };
+let currentPage = 1;
+const PAGE_SIZE = 20;
+
+async function fetchAllDeals() {
+  const all = [];
+  let start = 0, more = true, page = 0;
+  while (more) {
+    page++;
+    const el = document.getElementById('progress');
+    if (el) el.textContent = `Página ${page} • ${all.length} registros carregados...`;
+    const url = `${WEBHOOK}/crm.deal.list?filter[CATEGORY_ID]=40&select[]=ID&select[]=TITLE&select[]=STAGE_ID&select[]=OPPORTUNITY&select[]=CONTACT_ID&select[]=COMPANY_ID&select[]=DATE_CREATE&select[]=DATE_MODIFY&select[]=ASSIGNED_BY_ID&start=${start}`;
+    const r = await fetch(url);
+    const d = await r.json();
+    if (d.result) all.push(...d.result);
+    if (d.next) start = d.next; else more = false;
+  }
+  return all;
+}
+
+function getMetrics(deals) {
+  const active = deals.filter(d => d.STAGE_ID !== 'C40:LOSE' && d.STAGE_ID !== 'C40:WON');
+  const lost = deals.filter(d => d.STAGE_ID === 'C40:LOSE');
+  const won = deals.filter(d => d.STAGE_ID === 'C40:WON');
+  const operational = deals.filter(d => ['C40:UC_H5V94G','C40:UC_RQR707','C40:UC_B307LJ','C40:UC_PKJ5D7'].includes(d.STAGE_ID));
+  const onboarding = deals.filter(d => ['C40:NEW','C40:PREPARATION','C40:UC_QW5FPT','C40:UC_IWLDG9'].includes(d.STAGE_ID));
+  const alertDeals = deals.filter(d => ['C40:UC_G5M3HM','C40:UC_AP0G1K','C40:UC_R75XVC','C40:UC_MQYZC8'].includes(d.STAGE_ID));
+
+  const stageCounts = {};
+  STAGES.forEach(s => { stageCounts[s.id] = deals.filter(d => d.STAGE_ID === s.id).length; });
+
+  const churnRate = deals.length > 0 ? (lost.length / deals.length * 100) : 0;
+  const healthRate = active.length > 0 ? (operational.length / active.length * 100) : 0;
+  const totalOpp = active.reduce((s, d) => s + (parseFloat(d.OPPORTUNITY) || 0), 0);
+
+  // Monthly evolution (by creation date)
+  const monthly = {};
+  deals.forEach(d => {
+    const m = d.DATE_CREATE ? d.DATE_CREATE.substring(0, 7) : 'N/A';
+    if (!monthly[m]) monthly[m] = { total: 0, lost: 0 };
+    monthly[m].total++;
+    if (d.STAGE_ID === 'C40:LOSE') monthly[m].lost++;
+  });
+
+  return { active, lost, won, operational, onboarding, alertDeals, stageCounts, churnRate, healthRate, totalOpp, monthly };
+}
+
+function fmt(v) { return v.toLocaleString('pt-BR'); }
+function fmtCur(v) { return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+function fmtDate(d) { return d ? new Date(d).toLocaleDateString('pt-BR') : '-'; }
+function daysSince(d) { if (!d) return '?'; return Math.floor((Date.now() - new Date(d).getTime()) / 86400000); }
+
+function renderDashboard() {
+  const m = getMetrics(ALL_DEALS);
+  const maxStage = Math.max(...Object.values(m.stageCounts), 1);
+
+  let html = '';
+
+  // KPIs
+  html += `<div class="kpi-grid">
+    <div class="kpi blue"><div class="value">${fmt(ALL_DEALS.length)}</div><div class="label">Total Franqueados</div></div>
+    <div class="kpi green"><div class="value">${fmt(m.active.length)}</div><div class="label">Ativos</div>
+      <div class="trend" style="color:var(--green)">${(m.active.length/ALL_DEALS.length*100).toFixed(1)}% do total</div></div>
+    <div class="kpi teal"><div class="value">${fmt(m.operational.length)}</div><div class="label">Em Operação</div>
+      <div class="trend" style="color:var(--teal)">${m.healthRate.toFixed(1)}% dos ativos</div></div>
+    <div class="kpi yellow"><div class="value">${fmt(m.onboarding.length)}</div><div class="label">Em Onboarding</div></div>
+    <div class="kpi red"><div class="value">${fmt(m.lost.length)}</div><div class="label">Perdidos / Turnover</div>
+      <div class="trend" style="color:var(--red)">⚠ ${m.churnRate.toFixed(1)}% de churn</div></div>
+    <div class="kpi purple"><div class="value">${fmt(m.alertDeals.length)}</div><div class="label">Em Alerta / Risco</div></div>
+  </div>`;
+
+  // Charts row
+  html += `<div class="charts-grid">
+    <div class="chart-card"><h3>Distribuição por Estágio (Funil)</h3><div class="funnel" id="funnel-chart"></div></div>
+    <div class="chart-card"><h3>Status Geral</h3><div class="chart-container" style="max-height:300px;display:flex;justify-content:center"><canvas id="pieChart"></canvas></div></div>
+  </div>`;
+
+  // Timeline chart
+  html += `<div class="chart-card" style="margin-bottom:24px"><h3>Evolução Mensal — Entradas vs Perdas</h3><div class="chart-container" style="height:250px"><canvas id="lineChart"></canvas></div></div>`;
+
+  // Insights
+  html += `<div class="insights-grid">`;
+  if (m.churnRate > 50) {
+    html += `<div class="insight-card danger"><h4>⚠️ Churn Crítico — ${m.churnRate.toFixed(1)}%</h4><p>Mais da metade dos franqueados foram perdidos. Recomenda-se revisão urgente do processo de seleção, onboarding e acompanhamento.</p></div>`;
+  } else if (m.churnRate > 30) {
+    html += `<div class="insight-card warning"><h4>⚡ Churn Elevado — ${m.churnRate.toFixed(1)}%</h4><p>Taxa de perda acima de 30%. Atenção especial ao suporte nos primeiros 90 dias.</p></div>`;
+  }
+  if (m.alertDeals.length > 0) {
+    html += `<div class="insight-card danger"><h4>🚨 ${m.alertDeals.length} Franqueados em Risco Imediato</h4><p>Franqueados em estágio de alerta, pausa ou turnover precisam de intervenção da equipe de CS agora.</p></div>`;
+  }
+  if (m.operational.length > 0) {
+    const opNames = m.operational.slice(0,3).map(d => d.TITLE.split(' ')[0]).join(', ');
+    html += `<div class="insight-card success"><h4>✅ ${m.operational.length} Franqueados Saudáveis</h4><p>Operando nos níveis Gold, Platinum, Black ou Monitoramento. Ex: ${opNames}...</p></div>`;
+  }
+  if (m.onboarding.length > 0) {
+    html += `<div class="insight-card"><h4>📚 ${m.onboarding.length} em Fase de Onboarding</h4><p>Franqueados novos em boas-vindas, reunião ou treinamento. Momento crítico para engajamento e retenção.</p></div>`;
+  }
+  const stale = m.active.filter(d => daysSince(d.DATE_MODIFY) > 30).length;
+  if (stale > 0) {
+    html += `<div class="insight-card warning"><h4>⏰ ${stale} Sem Atividade há +30 Dias</h4><p>Franqueados ativos que não tiveram movimentação recente. Verificar se precisam de suporte.</p></div>`;
+  }
+  html += `</div>`;
+
+  // Filter bar
+  html += `<div class="filter-bar">
+    <input type="text" id="searchInput" placeholder="🔍 Buscar franqueado..." oninput="applyFilter()" value="${currentFilter.search}">
+    <select id="stageFilter" onchange="applyFilter()">
+      <option value="all">Todos os estágios</option>
+      ${STAGES.map(s => `<option value="${s.id}" ${currentFilter.stage===s.id?'selected':''}>${s.name}</option>`).join('')}
+    </select>
+    <div class="table-tabs" style="margin-left:auto">
+      <button class="tab ${currentFilter.tab==='active'?'active':''}" onclick="setTab('active')">Ativos (${m.active.length})</button>
+      <button class="tab ${currentFilter.tab==='lost'?'active':''}" onclick="setTab('lost')">Perdidos (${m.lost.length})</button>
+      <button class="tab ${currentFilter.tab==='all'?'active':''}" onclick="setTab('all')">Todos (${ALL_DEALS.length})</button>
+    </div>
+  </div>`;
+
+  // Table
+  let filtered = ALL_DEALS;
+  if (currentFilter.tab === 'active') filtered = m.active;
+  else if (currentFilter.tab === 'lost') filtered = m.lost;
+
+  if (currentFilter.search) {
+    const q = currentFilter.search.toLowerCase();
+    filtered = filtered.filter(d => d.TITLE.toLowerCase().includes(q));
+  }
+  if (currentFilter.stage !== 'all') {
+    filtered = filtered.filter(d => d.STAGE_ID === currentFilter.stage);
+  }
+
+  filtered.sort((a, b) => new Date(b.DATE_MODIFY || 0) - new Date(a.DATE_MODIFY || 0));
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  if (currentPage > totalPages) currentPage = 1;
+  const paged = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  html += `<div class="table-section">
+    <div class="table-header"><h3>${filtered.length} franqueados encontrados</h3></div>
+    <div class="table-scroll"><table>
+      <tr><th>#</th><th>Nome</th><th>Estágio</th><th>Valor</th><th>Criado</th><th>Última Atividade</th><th>Dias Sem Ativ.</th></tr>`;
+
+  paged.forEach((d, i) => {
+    const s = stageMap[d.STAGE_ID] || { name: d.STAGE_ID, badge: 'training' };
+    const days = daysSince(d.DATE_MODIFY);
+    const daysColor = days > 60 ? 'var(--red)' : days > 30 ? 'var(--yellow)' : 'var(--green)';
+    html += `<tr>
+      <td style="color:var(--muted)">${(currentPage-1)*PAGE_SIZE + i + 1}</td>
+      <td><strong>${d.TITLE}</strong></td>
+      <td><span class="stage-badge sb-${s.badge}">${s.name}</span></td>
+      <td>${parseFloat(d.OPPORTUNITY) ? fmtCur(parseFloat(d.OPPORTUNITY)) : '-'}</td>
+      <td style="color:var(--muted)">${fmtDate(d.DATE_CREATE)}</td>
+      <td style="color:var(--muted)">${fmtDate(d.DATE_MODIFY)}</td>
+      <td style="color:${daysColor};font-weight:600">${days}d</td>
+    </tr>`;
+  });
+
+  html += `</table></div>`;
+
+  // Pagination
+  if (totalPages > 1) {
+    html += `<div class="pagination">`;
+    for (let p = 1; p <= totalPages; p++) {
+      html += `<button class="page-btn ${p===currentPage?'active':''}" onclick="goPage(${p})">${p}</button>`;
+    }
+    html += `</div>`;
+  }
+  html += `</div>`;
+
+  document.getElementById('app').innerHTML = html;
+
+  // Render funnel
+  const funnelEl = document.getElementById('funnel-chart');
+  if (funnelEl) {
+    let funnelHtml = '';
+    STAGES.forEach(s => {
+      const count = m.stageCounts[s.id] || 0;
+      const pct = (count / maxStage) * 100;
+      funnelHtml += `<div class="funnel-stage" onclick="filterByStage('${s.id}')">
+        <div class="funnel-label">${s.name}</div>
+        <div class="funnel-bar-bg">
+          <div class="funnel-bar" style="width:${Math.max(pct, count>0?3:0)}%;background:${s.color}">${count}</div>
+        </div>
+        <div class="funnel-count">${(count/ALL_DEALS.length*100).toFixed(1)}%</div>
+      </div>`;
+    });
+    funnelEl.innerHTML = funnelHtml;
+  }
+
+  // Pie chart
+  const pieCtx = document.getElementById('pieChart');
+  if (pieCtx) {
+    new Chart(pieCtx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Em Operação', 'Onboarding', 'Em Alerta', 'Perdidos', 'Concluídos'],
+        datasets: [{ data: [m.operational.length, m.onboarding.length, m.alertDeals.length, m.lost.length, m.won.length],
+          backgroundColor: ['#2dd4bf', '#38bdf8', '#fbbf24', '#ef4444', '#22c55e'],
+          borderWidth: 0, borderRadius: 4 }]
+      },
+      options: { responsive: true, maintainAspectRatio: true, cutout: '60%',
+        plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 }, padding: 12, usePointStyle: true, pointStyleWidth: 8 } } } }
+    });
+  }
+
+  // Line chart
+  const lineCtx = document.getElementById('lineChart');
+  if (lineCtx) {
+    const months = Object.keys(m.monthly).sort();
+    const last12 = months.slice(-12);
+    new Chart(lineCtx, {
+      type: 'bar',
+      data: {
+        labels: last12.map(m => { const [y,mo] = m.split('-'); return `${mo}/${y.slice(2)}`; }),
+        datasets: [
+          { label: 'Novos', data: last12.map(m2 => m.monthly[m2].total), backgroundColor: '#38bdf840', borderColor: '#38bdf8', borderWidth: 2, borderRadius: 4 },
+          { label: 'Perdidos', data: last12.map(m2 => m.monthly[m2].lost), backgroundColor: '#ef444440', borderColor: '#ef4444', borderWidth: 2, borderRadius: 4 }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false, interaction: { intersect: false, mode: 'index' },
+        scales: { x: { grid: { color: '#334155' }, ticks: { color: '#94a3b8', font: { size: 11 } } },
+                  y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8', font: { size: 11 } } } },
+        plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 }, usePointStyle: true } } } }
+    });
+  }
+}
+
+function applyFilter() {
+  currentFilter.search = document.getElementById('searchInput')?.value || '';
+  currentFilter.stage = document.getElementById('stageFilter')?.value || 'all';
+  currentPage = 1;
+  renderDashboard();
+}
+function setTab(tab) { currentFilter.tab = tab; currentPage = 1; renderDashboard(); }
+function goPage(p) { currentPage = p; renderDashboard(); }
+function filterByStage(id) {
+  currentFilter.stage = id;
+  currentFilter.tab = 'all';
+  currentPage = 1;
+  renderDashboard();
+}
+
+function exportCSV() {
+  let csv = '\ufeffID,Nome,Estágio,Grupo,Valor,Criado,Última Atividade,Status\n';
+  ALL_DEALS.forEach(d => {
+    const s = stageMap[d.STAGE_ID] || { name: d.STAGE_ID, group: '?' };
+    const status = d.STAGE_ID === 'C40:LOSE' ? 'Perdido' : d.STAGE_ID === 'C40:WON' ? 'Concluído' : 'Ativo';
+    csv += `${d.ID},"${d.TITLE}","${s.name}","${s.group}",${parseFloat(d.OPPORTUNITY)||0},${fmtDate(d.DATE_CREATE)},${fmtDate(d.DATE_MODIFY)},${status}\n`;
+  });
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'franqueados_ivoei_' + new Date().toISOString().slice(0,10) + '.csv'; a.click();
+}
+
+// Init
+(async () => {
+  try {
+    ALL_DEALS = await fetchAllDeals();
+    renderDashboard();
+  } catch(e) {
+    document.getElementById('app').innerHTML = `<div style="text-align:center;padding:60px;color:var(--red)">
+      <h2>Erro ao carregar</h2><p style="color:var(--muted);margin-top:8px">${e.message}</p>
+      <p style="color:var(--muted);margin-top:8px">Verifique se o webhook do Bitrix está ativo e tente novamente.</p>
+      <button class="btn btn-primary" onclick="location.reload()" style="margin-top:16px">Tentar novamente</button></div>`;
+  }
+})();
+</script>
+</body>
+</html>
