@@ -1,16 +1,11 @@
 {
-  "functions": {
-    "api/deals.js": {
-      "runtime": "@vercel/edge"
-    }
-  },
-  "headers": [
-    {
-      "source": "/api/(.*)",
-      "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "*" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET, OPTIONS" }
-      ]
-    }
-  ]
+    "headers": [
+          {
+                  "source": "/api/(.*)",
+                  "headers": [
+                            { "key": "Access-Control-Allow-Origin", "value": "*" },
+                            { "key": "Access-Control-Allow-Methods", "value": "GET, OPTIONS" }
+                  ]
+          }
+    ]
 }
